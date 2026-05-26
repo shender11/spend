@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Orbita Spend Sync",
+  "version": "0.1.0",
+  "description": "Syncs Orbita client spend to the spend bot.",
+  "permissions": [],
+  "host_permissions": [
+    "https://orbita.life/*",
+    "https://your-service.onrender.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://orbita.life/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
