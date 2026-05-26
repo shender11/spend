@@ -31,7 +31,7 @@ export class SpendStore {
   }
 
   upsertOrbitaItems(items, syncedAt = new Date().toISOString()) {
-    const clients = {};
+    const clients = { ...this.data.orbita.clients };
     for (const item of items || []) {
       const clientId = normalizeClientId(item.clientId || item.male_id || item.maleId);
       if (!clientId) continue;
