@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { config } from "./config.js";
-import { loadArchiveCsv } from "./archiveCsv.js";
+import { loadArchiveCsv, loadArchiveCsvFromUrl } from "./archiveCsv.js";
 import { money } from "./money.js";
 
 export class SpendStore {
@@ -27,7 +27,9 @@ export class SpendStore {
   }
 
   async reloadArchive() {
-    this.archive = await loadArchiveCsv(config.archiveCsvPath);
+    const fileArchive = await loadArchiveCsv(config.archiveCsvPath);
+    const urlArchive = await loadArchiveCsvFromUrl(config.archiveCsvUrl);
+    this.archive = mergeArchives(fileArchive, urlArchive);
   }
 
   upsertOrbitaItems(items, syncedAt = new Date().toISOString()) {
@@ -65,6 +67,20 @@ export class SpendStore {
       lastOrbitaSyncAt: this.data.orbita.lastSyncAt || ""
     };
   }
+}
+
+function mergeArchives(...archives) {
+  const clients = {};
+  let rows = 0;
+
+  for (const archive of archives) {
+    rows += Number(archive?.rows || 0);
+    for (const [clientId, total] of Object.entries(archive?.clients || {})) {
+      clients[clientId] = money(Number(clients[clientId] || 0) + Number(total || 0));
+    }
+  }
+
+  return { clients, rows };
 }
 
 function defaultState() {

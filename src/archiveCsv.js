@@ -10,6 +10,21 @@ export async function loadArchiveCsv(filePath) {
   }
 }
 
+export async function loadArchiveCsvFromUrl(url) {
+  if (!url) return { clients: {}, rows: 0 };
+
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    const raw = await response.text();
+    if (!response.ok) {
+      throw new Error(`Archive CSV URL failed ${response.status}: ${raw.slice(0, 200)}`);
+    }
+    return parseArchiveCsv(raw);
+  } catch {
+    return { clients: {}, rows: 0 };
+  }
+}
+
 function parseArchiveCsv(raw) {
   const rows = parseCsv(raw, detectDelimiter(raw));
   if (!rows.length) return { clients: {}, rows: 0 };

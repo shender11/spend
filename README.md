@@ -21,6 +21,7 @@
 ## Archive CSV
 
 Файл: `ARCHIVE_CSV_PATH`, по умолчанию `/var/data/archive-spend.csv`.
+Можно также подключить Google Sheets через `ARCHIVE_CSV_URL`.
 
 Минимальные колонки:
 
@@ -46,3 +47,18 @@ ORBITA_SYNC_FROM=2022-01-01
 
 `ALLOWED_CHAT_IDS` можно оставить пустым, тогда бот отвечает всем. Можно задать через запятую.
 
+## Google Sheets
+
+1. В Google Sheets нажать `Share`.
+2. Поставить доступ `Anyone with the link` -> `Viewer`.
+3. В Render добавить переменную `ARCHIVE_CSV_URL` вида:
+
+```text
+https://docs.google.com/spreadsheets/d/SHEET_ID/export?format=csv&gid=0
+```
+
+Для таблицы:
+
+```text
+https://docs.google.com/spreadsheets/d/1pUP8HwQbDm-03fZVMFQVYC4M31PSCUE2dR8H1FBgPQs/export?format=csv&gid=0
+```

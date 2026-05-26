@@ -10,6 +10,7 @@ export const config = {
   },
   dataDir: process.env.DATA_DIR || "data",
   archiveCsvPath: process.env.ARCHIVE_CSV_PATH || "data/archive-spend.csv",
+  archiveCsvUrl: process.env.ARCHIVE_CSV_URL || "",
   allowedChatIds: new Set(
     String(process.env.ALLOWED_CHAT_IDS || "")
       .split(",")
