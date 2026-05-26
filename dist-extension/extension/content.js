@@ -3,6 +3,10 @@ const SYNC_FROM = "2022-01-01";
 const SYNC_CHUNK_DAYS = 7;
 
 let syncRunning = false;
+const pageAjaxPending = new Map();
+
+installPageBridge();
+window.addEventListener("message", handlePageBridgeMessage);
 
 setTimeout(syncSpend, 2000);
 setInterval(syncSpend, SYNC_INTERVAL_MS);
@@ -24,10 +28,15 @@ async function syncSpend() {
 
 async function collectOrbitaMenStatisticsChunked(dateFrom, dateTo, onProgress = null) {
   const totals = new Map();
-  const ranges = buildDateRanges(dateFrom, dateTo, SYNC_CHUNK_DAYS);
+  const ranges = buildDateRanges(dateFrom, dateTo, SYNC_CHUNK_DAYS).reverse();
 
   for (let index = 0; index < ranges.length; index += 1) {
     const range = ranges[index];
+    console.log("[Orbita Spend Sync] loading range", {
+      range,
+      index: index + 1,
+      totalRanges: ranges.length
+    });
     const items = await collectOrbitaMenStatistics(range.from, range.to);
     for (const item of items) {
       const previous = totals.get(item.clientId) || {
@@ -91,28 +100,54 @@ async function collectOrbitaMenStatistics(dateFrom, dateTo) {
 }
 
 async function orbitaPostJson(path, payload) {
-  if (window.$?.ajax) {
-    return new Promise((resolve, reject) => {
-      window.$.ajax(path, {
-        data: payload,
-        method: "POST",
-        success: resolve,
-        error: (xhr) => reject(new Error(`${path} failed ${xhr?.status || ""}: ${xhr?.responseText || ""}`))
-      });
-    });
+  return requestPageAjax(path, payload);
+}
+
+function installPageBridge() {
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("page-bridge.js");
+  script.onload = () => script.remove();
+  (document.head || document.documentElement).appendChild(script);
+}
+
+function requestPageAjax(path, payload) {
+  const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pageAjaxPending.delete(id);
+      reject(new Error(`${path} timed out`));
+    }, 60000);
+
+    pageAjaxPending.set(id, { resolve, reject, timeout });
+    window.postMessage({
+      source: "orbita-spend-sync",
+      type: "ORBITA_AJAX_REQUEST",
+      id,
+      path,
+      payload
+    }, "*");
+  });
+}
+
+function handlePageBridgeMessage(event) {
+  const message = event.data;
+  if (event.source !== window || message?.source !== "orbita-spend-sync" || message?.type !== "ORBITA_AJAX_RESPONSE") {
+    return;
   }
 
-  const response = await fetch(path, {
-    method: "POST",
-    credentials: "include",
-    cache: "no-store",
-    headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8" },
-    body: new URLSearchParams(flattenPayload(payload))
-  });
-  const text = await response.text();
-  if (!response.ok) throw new Error(`${path} failed ${response.status}: ${text.slice(0, 200)}`);
-  const json = JSON.parse(text);
-  return json.response ?? json;
+  const pending = pageAjaxPending.get(message.id);
+  if (!pending) return;
+
+  pageAjaxPending.delete(message.id);
+  clearTimeout(pending.timeout);
+
+  if (!message.ok) {
+    pending.reject(new Error(message.error || "Orbita ajax failed"));
+    return;
+  }
+
+  pending.resolve(message.data?.response ?? message.data);
 }
 
 async function sendToBot(payload) {
@@ -124,23 +159,6 @@ async function sendToBot(payload) {
     throw new Error(response?.error || "bot sync failed");
   }
   return response.result;
-}
-
-function flattenPayload(payload, prefix = "") {
-  const output = {};
-  for (const [key, value] of Object.entries(payload || {})) {
-    const field = prefix ? `${prefix}[${key}]` : key;
-    if (Array.isArray(value)) {
-      value.forEach((item, index) => {
-        output[`${field}[${index}]`] = item;
-      });
-    } else if (value && typeof value === "object") {
-      Object.assign(output, flattenPayload(value, field));
-    } else {
-      output[field] = value ?? "";
-    }
-  }
-  return output;
 }
 
 function today() {
