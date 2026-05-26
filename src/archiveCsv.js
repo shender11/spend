@@ -30,22 +30,44 @@ function parseArchiveCsv(raw) {
   if (!rows.length) return { clients: {}, rows: 0 };
 
   const headers = rows[0].map((header) => normalizeHeader(header));
-  const clientIndex = firstIndex(headers, ["client_id", "male_id", "client", "id", "man_id"]);
-  const spendIndex = firstIndex(headers, ["spend", "total", "amount", "sum", "balance"]);
-  if (clientIndex < 0 || spendIndex < 0) return { clients: {}, rows: 0 };
+  let clientIndex = firstIndex(headers, ["client_id", "male_id", "client", "id", "man_id"]);
+  let spendIndex = firstIndex(headers, ["spend", "total", "amount", "sum", "balance"]);
+  let dataRows = rows.slice(1);
+
+  if (clientIndex < 0 || spendIndex < 0) {
+    clientIndex = 0;
+    spendIndex = 1;
+    dataRows = rows;
+  }
 
   const clients = {};
   let count = 0;
-  for (const row of rows.slice(1)) {
+  for (const row of dataRows) {
     const clientId = onlyDigits(row[clientIndex]);
     if (!clientId) continue;
 
     clients[clientId] ??= 0;
-    clients[clientId] = money(clients[clientId] + money(row[spendIndex]));
+    clients[clientId] = money(clients[clientId] + money(spendValue(row, spendIndex)));
     count += 1;
   }
 
   return { clients, rows: count };
+}
+
+function spendValue(row, spendIndex) {
+  const value = row[spendIndex];
+  if (value == null) return 0;
+
+  const next = row[spendIndex + 1];
+  if (
+    next != null &&
+    /^\s*-?\d+\s*$/.test(String(value)) &&
+    /^\s*\d{1,2}\s*$/.test(String(next))
+  ) {
+    return `${value},${next}`;
+  }
+
+  return value;
 }
 
 function parseCsv(raw, delimiter = ",") {

@@ -25,7 +25,7 @@ export class TelegramBot {
 
     if (text === "/reload_archive") {
       await this.store.reloadArchive();
-      await this.sendMessage(chatId, "Архивная таблица обновлена.");
+      await this.sendMessage(chatId, `Архивная таблица обновлена. Строк: ${this.store.archive.rows || 0}`);
       return;
     }
 
